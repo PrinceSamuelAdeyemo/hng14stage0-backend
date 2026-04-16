@@ -5,6 +5,14 @@ from django.views.decorators.http import require_GET
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from datetime import datetime
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+from django.utils.timezone import now
+from django.db.models import Q
+from .models import Profile
+from .serializers import ProfileSerializer
 
 @csrf_exempt
 @require_GET
@@ -51,3 +59,123 @@ def classify_name(request):
 		}, status=200, headers=cors_headers)
 	except requests.exceptions.RequestException:
 		return JsonResponse({"status": "error", "message": "Upstream or server failure"}, status=500, headers=cors_headers)
+
+def add_cors_header(response):
+	response["Access-Control-Allow-Origin"] = "*"
+	return response
+
+def classify_age_group(age):
+	if age is None:
+		return None
+	if 0 <= age <= 12:
+		return "child"
+	elif 13 <= age <= 19:
+		return "teenager"
+	elif 20 <= age <= 59:
+		return "adult"
+	elif age >= 60:
+		return "senior"
+	return None
+
+class ProfileListCreateView(APIView):
+	def get(self, request):
+		gender = request.GET.get('gender')
+		country_id = request.GET.get('country_id')
+		age_group = request.GET.get('age_group')
+		filters = Q()
+		if gender:
+			filters &= Q(gender__iexact=gender)
+		if country_id:
+			filters &= Q(country_id__iexact=country_id)
+		if age_group:
+			filters &= Q(age_group__iexact=age_group)
+		profiles = Profile.objects.filter(filters)
+		data = [
+			{
+				"id": str(p.id),
+				"name": p.name,
+				"gender": p.gender,
+				"age": p.age,
+				"age_group": p.age_group,
+				"country_id": p.country_id,
+			}
+			for p in profiles
+		]
+		resp = Response({"status": "success", "count": len(data), "data": data}, status=200)
+		return add_cors_header(resp)
+
+	def post(self, request):
+		name = request.data.get("name")
+		if not name or not isinstance(name, str) or not name.strip():
+			resp = Response({"status": "error", "message": "Missing or empty name"}, status=400)
+			return add_cors_header(resp)
+		name = name.strip().lower()
+		existing = Profile.objects.filter(name=name).first()
+		if existing:
+			data = ProfileSerializer(existing).data
+			resp = Response({"status": "success", "message": "Profile already exists", "data": data}, status=200)
+			return add_cors_header(resp)
+		# Call Genderize
+		g_url = f"https://api.genderize.io?name={name}"
+		try:
+			g_res = requests.get(g_url, timeout=5)
+			g_data = g_res.json()
+		except Exception:
+			resp = Response({"status": "error", "message": "Genderize returned an invalid response"}, status=502)
+			return add_cors_header(resp)
+		if not g_data.get("gender") or g_data.get("count", 0) == 0:
+			resp = Response({"status": "error", "message": "Genderize returned an invalid response"}, status=502)
+			return add_cors_header(resp)
+		# Call Agify
+		a_url = f"https://api.agify.io?name={name}"
+		try:
+			a_res = requests.get(a_url, timeout=5)
+			a_data = a_res.json()
+		except Exception:
+			resp = Response({"status": "error", "message": "Agify returned an invalid response"}, status=502)
+			return add_cors_header(resp)
+		if a_data.get("age") is None:
+			resp = Response({"status": "error", "message": "Agify returned an invalid response"}, status=502)
+			return add_cors_header(resp)
+		# Call Nationalize
+		n_url = f"https://api.nationalize.io?name={name}"
+		try:
+			n_res = requests.get(n_url, timeout=5)
+			n_data = n_res.json()
+		except Exception:
+			resp = Response({"status": "error", "message": "Nationalize returned an invalid response"}, status=502)
+			return add_cors_header(resp)
+		countries = n_data.get("country", [])
+		if not countries:
+			resp = Response({"status": "error", "message": "Nationalize returned an invalid response"}, status=502)
+			return add_cors_header(resp)
+		top_country = max(countries, key=lambda c: c.get("probability", 0))
+		# Classification
+		age = a_data["age"]
+		age_group = classify_age_group(age)
+		profile = Profile.objects.create(
+			name=name,
+			gender=g_data["gender"],
+			gender_probability=g_data["probability"],
+			sample_size=g_data["count"],
+			age=age,
+			age_group=age_group,
+			country_id=top_country["country_id"],
+			country_probability=top_country["probability"],
+		)
+		data = ProfileSerializer(profile).data
+		resp = Response({"status": "success", "data": data}, status=201)
+		return add_cors_header(resp)
+
+class ProfileDetailView(APIView):
+	def get(self, request, pk):
+		profile = get_object_or_404(Profile, pk=pk)
+		data = ProfileSerializer(profile).data
+		resp = Response({"status": "success", "data": data}, status=200)
+		return add_cors_header(resp)
+
+	def delete(self, request, pk):
+		profile = get_object_or_404(Profile, pk=pk)
+		profile.delete()
+		resp = Response(status=204)
+		return add_cors_header(resp)

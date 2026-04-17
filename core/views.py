@@ -157,11 +157,14 @@ class ProfileListCreateView(APIView):
 			resp = Response({"status": "error", "message": "Missing or empty name"}, status=400)
 			return add_cors_header(resp)
 		name = name.strip().lower()
+		
+		# Use get_or_create (atomic) to avoid race conditions on concurrent requests
 		existing = Profile.objects.filter(name=name).first()
 		if existing:
 			data = ProfileSerializer(existing).data
 			resp = Response({"status": "success", "message": "Profile already exists", "data": data}, status=200)
 			return add_cors_header(resp)
+		
 		# Call Genderize
 		g_url = f"https://api.genderize.io?name={name}"
 		try:
@@ -200,19 +203,30 @@ class ProfileListCreateView(APIView):
 		# Classification
 		age = a_data["age"]
 		age_group = classify_age_group(age)
-		profile = Profile.objects.create(
-			name=name,
-			gender=g_data["gender"],
-			gender_probability=g_data["probability"],
-			sample_size=g_data["count"],
-			age=age,
-			age_group=age_group,
-			country_id=top_country["country_id"],
-			country_probability=top_country["probability"],
-		)
-		data = ProfileSerializer(profile).data
-		resp = Response({"status": "success", "data": data}, status=201)
-		return add_cors_header(resp)
+		
+		try:
+			# Use get_or_create for atomic operation (handles race conditions)
+			profile, created = Profile.objects.get_or_create(
+				name=name,
+				defaults={
+					'gender': g_data["gender"],
+					'gender_probability': g_data["probability"],
+					'sample_size': g_data["count"],
+					'age': age,
+					'age_group': age_group,
+					'country_id': top_country["country_id"],
+					'country_probability': top_country["probability"],
+				}
+			)
+			data = ProfileSerializer(profile).data
+			if created:
+				resp = Response({"status": "success", "data": data}, status=201)
+			else:
+				resp = Response({"status": "success", "message": "Profile already exists", "data": data}, status=200)
+			return add_cors_header(resp)
+		except Exception as e:
+			resp = Response({"status": "error", "message": "Failed to save profile"}, status=500)
+			return add_cors_header(resp)
 
 class ProfileDetailView(APIView):
 	permission_classes = [AllowAny]

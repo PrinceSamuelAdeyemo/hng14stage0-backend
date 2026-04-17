@@ -108,20 +108,11 @@ def get_request_data(request):
 	Safely extract JSON data from request, handling Vercel serverless environment.
 	Tries multiple methods to ensure data is properly parsed.
 	"""
-	# Try DRF's request.data first (normal case)
-	if request.data:
-		return request.data
-	
-	# Try parsing request.body directly (for serverless environments)
+	# Try DRF's request.data first (normal case) - don't check if falsy since empty {} is valid
 	try:
-		if request.body:
-			return json.loads(request.body)
-	except (json.JSONDecodeError, AttributeError):
+		return request.data
+	except Exception:
 		pass
-	
-	# Try POST data
-	if request.POST:
-		return request.POST
 	
 	# Return empty dict if nothing found
 	return {}

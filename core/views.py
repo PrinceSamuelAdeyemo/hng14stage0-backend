@@ -146,17 +146,8 @@ class ProfileListCreateView(APIView):
 		if age_group:
 			filters &= Q(age_group__iexact=age_group)
 		profiles = Profile.objects.filter(filters)
-		data = [
-			{
-				"id": str(p.id),
-				"name": p.name,
-				"gender": p.gender,
-				"age": p.age,
-				"age_group": p.age_group,
-				"country_id": p.country_id,
-			}
-			for p in profiles
-		]
+		# Use serializer to get complete data with all fields
+		data = [ProfileSerializer(p).data for p in profiles]
 		resp = Response({"status": "success", "count": len(data), "data": data}, status=200)
 		return add_cors_header(resp)
 

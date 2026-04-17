@@ -91,6 +91,10 @@ def classify_age_group(age):
 		return "senior"
 	return None
 
+from rest_framework.permissions import AllowAny
+from rest_framework.decorators import permission_classes
+
+@permission_classes([AllowAny])
 class ProfileListCreateView(APIView):
 	def get(self, request):
 		gender = request.GET.get('gender')
@@ -181,6 +185,7 @@ class ProfileListCreateView(APIView):
 		resp = Response({"status": "success", "data": data}, status=201)
 		return add_cors_header(resp)
 
+@permission_classes([AllowAny])
 class ProfileDetailView(APIView):
 	def get(self, request, pk):
 		profile = get_object_or_404(Profile, pk=pk)

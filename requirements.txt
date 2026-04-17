@@ -1,9 +1,8 @@
-# Add CORS headers package
-django-cors-headers
 asgiref==3.11.1
 certifi==2026.2.25
 charset-normalizer==3.4.7
 Django==5.2.13
+django-cors-headers==4.9.0
 djangorestframework==3.17.1
 idna==3.11
 requests==2.33.1

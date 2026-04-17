@@ -2,6 +2,12 @@
   "buildCommand": "pip install -r requirements.txt && python manage.py migrate",
   "outputDirectory": ".",
   "env": {
-    "DJANGO_SETTINGS_MODULE": "config.settings"
+    "DJANGO_SETTINGS_MODULE": "config.settings",
+    "PYTHONUNBUFFERED": "1"
+  },
+  "functions": {
+    "config/wsgi.py": {
+      "runtime": "python3.10"
+    }
   }
 }

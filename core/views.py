@@ -14,6 +14,7 @@ from django.db.models import Q
 from .models import Profile
 from .serializers import ProfileSerializer
 from rest_framework.permissions import AllowAny
+import json
 
 
 # DRF-based classify_name endpoint (if still needed)
@@ -81,6 +82,29 @@ def add_cors_header(response):
 	response["Access-Control-Allow-Headers"] = "Content-Type"
 	return response
 
+def get_request_data(request):
+	"""
+	Safely extract JSON data from request, handling Vercel serverless environment.
+	Tries multiple methods to ensure data is properly parsed.
+	"""
+	# Try DRF's request.data first (normal case)
+	if request.data:
+		return request.data
+	
+	# Try parsing request.body directly (for serverless environments)
+	try:
+		if request.body:
+			return json.loads(request.body)
+	except (json.JSONDecodeError, AttributeError):
+		pass
+	
+	# Try POST data
+	if request.POST:
+		return request.POST
+	
+	# Return empty dict if nothing found
+	return {}
+
 def classify_age_group(age):
 	if age is None:
 		return None
@@ -125,7 +149,10 @@ class ProfileListCreateView(APIView):
 		return add_cors_header(resp)
 
 	def post(self, request):
-		name = request.data.get("name")
+		# Get request data with fallback for serverless environments
+		data = get_request_data(request)
+		name = data.get("name") if isinstance(data, dict) else None
+		
 		if not name or not isinstance(name, str) or not name.strip():
 			resp = Response({"status": "error", "message": "Missing or empty name"}, status=400)
 			return add_cors_header(resp)

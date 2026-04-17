@@ -174,12 +174,27 @@ class ProfileListCreateView(APIView):
 		data = get_request_data(request)
 		name = data.get("name") if isinstance(data, dict) else None
 		
+		# Validate name - missing or empty
 		if not name or not isinstance(name, str) or not name.strip():
 			resp = Response({"status": "error", "message": "Missing or empty name"}, status=400)
 			return add_cors_header(resp)
+		
+		# Validate name - not numeric/integer
+		if isinstance(name, (int, float)):
+			resp = Response({"status": "error", "message": "Invalid data type"}, status=422)
+			return add_cors_header(resp)
+		
+		# Try to convert to see if it's a pure number string
+		try:
+			_ = int(name.strip())
+			resp = Response({"status": "error", "message": "Invalid data type"}, status=422)
+			return add_cors_header(resp)
+		except (ValueError, AttributeError):
+			pass  # Not a number, continue
+		
 		name = name.strip().lower()
 		
-		# Use get_or_create (atomic) to avoid race conditions on concurrent requests
+		# Check for existing profile
 		existing = Profile.objects.filter(name=name).first()
 		if existing:
 			data = ProfileSerializer(existing).data
@@ -194,6 +209,7 @@ class ProfileListCreateView(APIView):
 		except Exception as e:
 			resp = Response({"status": "error", "message": "Genderize returned an invalid response"}, status=502)
 			return add_cors_header(resp)
+		
 		if not g_data.get("gender") or g_data.get("count", 0) == 0:
 			resp = Response({"status": "error", "message": "Genderize returned an invalid response"}, status=502)
 			return add_cors_header(resp)
@@ -206,6 +222,7 @@ class ProfileListCreateView(APIView):
 		except Exception as e:
 			resp = Response({"status": "error", "message": "Agify returned an invalid response"}, status=502)
 			return add_cors_header(resp)
+		
 		if a_data.get("age") is None:
 			resp = Response({"status": "error", "message": "Agify returned an invalid response"}, status=502)
 			return add_cors_header(resp)
@@ -231,7 +248,7 @@ class ProfileListCreateView(APIView):
 			resp = Response({"status": "error", "message": "Nationalize returned an invalid response"}, status=502)
 			return add_cors_header(resp)
 		
-		# Classification
+		# Extract and validate all data
 		age = a_data.get("age")
 		if age is None:
 			resp = Response({"status": "error", "message": "Agify returned an invalid response"}, status=502)
@@ -271,7 +288,6 @@ class ProfileListCreateView(APIView):
 			error_msg = str(e)
 			print(f"ERROR: {error_msg}", file=sys.stderr)
 			traceback.print_exc(file=sys.stderr)
-			# Return more specific error if possible
 			resp = Response({"status": "error", "message": f"Failed to save profile: {error_msg[:100]}"}, status=500)
 			return add_cors_header(resp)
 

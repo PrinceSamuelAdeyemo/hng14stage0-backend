@@ -186,72 +186,88 @@ class ProfileListCreateView(APIView):
 		name = name.strip().lower()
 		
 		# Check for existing profile
-		existing = Profile.objects.filter(name=name).first()
-		if existing:
-			data = ProfileSerializer(existing).data
-			resp = Response({"status": "success", "message": "Profile already exists", "data": data}, status=200)
-			return add_cors_header(resp)
-		
-		# Call Genderize
-		g_url = f"https://api.genderize.io?name={name}"
 		try:
-			g_res = requests.get(g_url, timeout=5)
-			g_data = g_res.json()
+			existing = Profile.objects.filter(name=name).first()
+			if existing:
+				data = ProfileSerializer(existing).data
+				resp = Response({"status": "success", "message": "Profile already exists", "data": data}, status=200)
+				return add_cors_header(resp)
 		except Exception as e:
-			resp = Response({"status": "error", "message": "Genderize returned an invalid response"}, status=502)
+			resp = Response({"status": "error", "message": "Database error"}, status=500)
 			return add_cors_header(resp)
 		
-		if not g_data.get("gender") or g_data.get("count", 0) == 0:
-			resp = Response({"status": "error", "message": "Genderize returned an invalid response"}, status=502)
-			return add_cors_header(resp)
-		
-		# Call Agify
-		a_url = f"https://api.agify.io?name={name}"
+		# Call external APIs with comprehensive error handling
 		try:
-			a_res = requests.get(a_url, timeout=5)
-			a_data = a_res.json()
+			# Call Genderize
+			g_url = f"https://api.genderize.io?name={name}"
+			try:
+				g_res = requests.get(g_url, timeout=5)
+				g_data = g_res.json() if g_res else None
+			except Exception:
+				resp = Response({"status": "error", "message": "Genderize returned an invalid response"}, status=502)
+				return add_cors_header(resp)
+			
+			if not isinstance(g_data, dict) or not g_data.get("gender") or g_data.get("count", 0) == 0:
+				resp = Response({"status": "error", "message": "Genderize returned an invalid response"}, status=502)
+				return add_cors_header(resp)
+			
+			# Call Agify
+			a_url = f"https://api.agify.io?name={name}"
+			try:
+				a_res = requests.get(a_url, timeout=5)
+				a_data = a_res.json() if a_res else None
+			except Exception:
+				resp = Response({"status": "error", "message": "Agify returned an invalid response"}, status=502)
+				return add_cors_header(resp)
+			
+			if not isinstance(a_data, dict) or a_data.get("age") is None:
+				resp = Response({"status": "error", "message": "Agify returned an invalid response"}, status=502)
+				return add_cors_header(resp)
+			
+			# Call Nationalize
+			n_url = f"https://api.nationalize.io?name={name}"
+			try:
+				n_res = requests.get(n_url, timeout=5)
+				n_data = n_res.json() if n_res else None
+			except Exception:
+				resp = Response({"status": "error", "message": "Nationalize returned an invalid response"}, status=502)
+				return add_cors_header(resp)
+			
+			if not isinstance(n_data, dict):
+				resp = Response({"status": "error", "message": "Nationalize returned an invalid response"}, status=502)
+				return add_cors_header(resp)
+			
+			countries = n_data.get("country", [])
+			if not countries or len(countries) == 0:
+				resp = Response({"status": "error", "message": "Nationalize returned an invalid response"}, status=502)
+				return add_cors_header(resp)
+			
+			# Safely get top country
+			try:
+				top_country = max(countries, key=lambda c: float(c.get("probability", 0)))
+			except (ValueError, TypeError, KeyError):
+				resp = Response({"status": "error", "message": "Nationalize returned an invalid response"}, status=502)
+				return add_cors_header(resp)
+			
+			# Extract and validate all data
+			age = a_data.get("age")
+			if age is None:
+				resp = Response({"status": "error", "message": "Agify returned an invalid response"}, status=502)
+				return add_cors_header(resp)
+			
+			age_group = classify_age_group(age)
+			gender = g_data.get("gender", "")
+			gender_probability = float(g_data.get("probability", 0))
+			sample_size = int(g_data.get("count", 0))
+			country_id = top_country.get("country_id", "")
+			country_probability = float(top_country.get("probability", 0))
+			
 		except Exception as e:
-			resp = Response({"status": "error", "message": "Agify returned an invalid response"}, status=502)
+			# Catch any unexpected exceptions from API processing
+			resp = Response({"status": "error", "message": "API processing failed"}, status=502)
 			return add_cors_header(resp)
 		
-		if a_data.get("age") is None:
-			resp = Response({"status": "error", "message": "Agify returned an invalid response"}, status=502)
-			return add_cors_header(resp)
-		
-		# Call Nationalize
-		n_url = f"https://api.nationalize.io?name={name}"
-		try:
-			n_res = requests.get(n_url, timeout=5)
-			n_data = n_res.json()
-		except Exception as e:
-			resp = Response({"status": "error", "message": "Nationalize returned an invalid response"}, status=502)
-			return add_cors_header(resp)
-		
-		countries = n_data.get("country", [])
-		if not countries or len(countries) == 0:
-			resp = Response({"status": "error", "message": "Nationalize returned an invalid response"}, status=502)
-			return add_cors_header(resp)
-		
-		# Safely get top country
-		try:
-			top_country = max(countries, key=lambda c: float(c.get("probability", 0)))
-		except (ValueError, TypeError, KeyError):
-			resp = Response({"status": "error", "message": "Nationalize returned an invalid response"}, status=502)
-			return add_cors_header(resp)
-		
-		# Extract and validate all data
-		age = a_data.get("age")
-		if age is None:
-			resp = Response({"status": "error", "message": "Agify returned an invalid response"}, status=502)
-			return add_cors_header(resp)
-		
-		age_group = classify_age_group(age)
-		gender = g_data.get("gender", "")
-		gender_probability = float(g_data.get("probability", 0))
-		sample_size = int(g_data.get("count", 0))
-		country_id = top_country.get("country_id", "")
-		country_probability = float(top_country.get("probability", 0))
-		
+		# Save to database
 		try:
 			# Use get_or_create for atomic operation (handles race conditions)
 			profile, created = Profile.objects.get_or_create(
@@ -273,13 +289,7 @@ class ProfileListCreateView(APIView):
 				resp = Response({"status": "success", "message": "Profile already exists", "data": data}, status=200)
 			return add_cors_header(resp)
 		except Exception as e:
-			import sys
-			import traceback
-			exc_type, exc_value, exc_traceback = sys.exc_info()
-			error_msg = str(e)
-			print(f"ERROR: {error_msg}", file=sys.stderr)
-			traceback.print_exc(file=sys.stderr)
-			resp = Response({"status": "error", "message": f"Failed to save profile: {error_msg[:100]}"}, status=500)
+			resp = Response({"status": "error", "message": "Failed to save profile"}, status=500)
 			return add_cors_header(resp)
 
 class ProfileDetailView(APIView):

@@ -174,14 +174,14 @@ class ProfileListCreateView(APIView):
 		data = get_request_data(request)
 		name = data.get("name") if isinstance(data, dict) else None
 		
-		# Validate name - missing or empty
-		if not name or not isinstance(name, str) or not name.strip():
-			resp = Response({"status": "error", "message": "Missing or empty name"}, status=400)
-			return add_cors_header(resp)
-		
-		# Validate name - not numeric/integer
+		# Validate name - check if it's an integer or float first (numeric type)
 		if isinstance(name, (int, float)):
 			resp = Response({"status": "error", "message": "Invalid data type"}, status=422)
+			return add_cors_header(resp)
+		
+		# Validate name - missing or empty or not a string
+		if not name or not isinstance(name, str) or not name.strip():
+			resp = Response({"status": "error", "message": "Missing or empty name"}, status=400)
 			return add_cors_header(resp)
 		
 		# Try to convert to see if it's a pure number string

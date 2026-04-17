@@ -201,7 +201,7 @@ class ProfileListCreateView(APIView):
 			# Call Genderize
 			g_url = f"https://api.genderize.io?name={name}"
 			try:
-				g_res = requests.get(g_url, timeout=5)
+				g_res = requests.get(g_url, timeout=3)
 				g_data = g_res.json() if g_res else None
 			except Exception:
 				resp = Response({"status": "error", "message": "Genderize returned an invalid response"}, status=502)
@@ -214,7 +214,7 @@ class ProfileListCreateView(APIView):
 			# Call Agify
 			a_url = f"https://api.agify.io?name={name}"
 			try:
-				a_res = requests.get(a_url, timeout=5)
+				a_res = requests.get(a_url, timeout=3)
 				a_data = a_res.json() if a_res else None
 			except Exception:
 				resp = Response({"status": "error", "message": "Agify returned an invalid response"}, status=502)
@@ -227,7 +227,7 @@ class ProfileListCreateView(APIView):
 			# Call Nationalize
 			n_url = f"https://api.nationalize.io?name={name}"
 			try:
-				n_res = requests.get(n_url, timeout=5)
+				n_res = requests.get(n_url, timeout=3)
 				n_data = n_res.json() if n_res else None
 			except Exception:
 				resp = Response({"status": "error", "message": "Nationalize returned an invalid response"}, status=502)

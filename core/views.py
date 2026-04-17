@@ -244,9 +244,14 @@ class ProfileListCreateView(APIView):
 				resp = Response({"status": "success", "message": "Profile already exists", "data": data}, status=200)
 			return add_cors_header(resp)
 		except Exception as e:
+			import sys
 			import traceback
-			traceback.print_exc()
-			resp = Response({"status": "error", "message": "Failed to save profile"}, status=500)
+			exc_type, exc_value, exc_traceback = sys.exc_info()
+			error_msg = str(e)
+			print(f"ERROR: {error_msg}", file=sys.stderr)
+			traceback.print_exc(file=sys.stderr)
+			# Return more specific error if possible
+			resp = Response({"status": "error", "message": f"Failed to save profile: {error_msg[:100]}"}, status=500)
 			return add_cors_header(resp)
 
 class ProfileDetailView(APIView):

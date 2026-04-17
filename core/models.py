@@ -1,13 +1,17 @@
 from django.db import models
 import uuid
-from uuid6 import uuid7
 
-def generate_uuid7():
-	"""Generate a UUID v7"""
-	return uuid7()
+def generate_uuid_v7():
+	"""Generate a UUID v7 if available, otherwise UUID v4"""
+	try:
+		from uuid6 import uuid7
+		return uuid7()
+	except (ImportError, Exception):
+		# Fallback to UUID v4 if uuid6 is not available
+		return uuid.uuid4()
 
 class Profile(models.Model):
-	id = models.UUIDField(primary_key=True, default=generate_uuid7, editable=False)
+	id = models.UUIDField(primary_key=True, default=generate_uuid_v7, editable=False)
 	name = models.CharField(max_length=100, unique=True)
 	gender = models.CharField(max_length=20)
 	gender_probability = models.FloatField()

@@ -1,6 +1,6 @@
 
 import requests
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
@@ -13,10 +13,12 @@ from django.utils.timezone import now
 from django.db.models import Q
 from .models import Profile
 from .serializers import ProfileSerializer
+from rest_framework.permissions import AllowAny
 
 
 # DRF-based classify_name endpoint (if still needed)
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def classify_name(request):
 	name = request.GET.get('name', None)
 	response = Response()
@@ -75,7 +77,8 @@ def classify_name(request):
 
 def add_cors_header(response):
 	response["Access-Control-Allow-Origin"] = "*"
-	response["Content-Type"] = "application/json"
+	response["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS"
+	response["Access-Control-Allow-Headers"] = "Content-Type"
 	return response
 
 def classify_age_group(age):
@@ -92,10 +95,9 @@ def classify_age_group(age):
 	return None
 
 from rest_framework.permissions import AllowAny
-from rest_framework.decorators import permission_classes
 
-@permission_classes([AllowAny])
 class ProfileListCreateView(APIView):
+	permission_classes = [AllowAny]
 	def get(self, request):
 		gender = request.GET.get('gender')
 		country_id = request.GET.get('country_id')
@@ -185,8 +187,8 @@ class ProfileListCreateView(APIView):
 		resp = Response({"status": "success", "data": data}, status=201)
 		return add_cors_header(resp)
 
-@permission_classes([AllowAny])
 class ProfileDetailView(APIView):
+	permission_classes = [AllowAny]
 	def get(self, request, pk):
 		profile = get_object_or_404(Profile, pk=pk)
 		data = ProfileSerializer(profile).data

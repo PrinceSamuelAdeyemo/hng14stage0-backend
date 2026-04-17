@@ -1,14 +1,13 @@
 from django.db import models
-
-# Create your models here.
-
 import uuid
-# If uuid7 is supported in your environment, replace uuid4 with uuid7
-def generate_uuid():
-	return uuid.uuid4()
+from uuid6 import uuid7
+
+def generate_uuid7():
+	"""Generate a UUID v7"""
+	return uuid7()
 
 class Profile(models.Model):
-	id = models.UUIDField(primary_key=True, default=generate_uuid, editable=False)
+	id = models.UUIDField(primary_key=True, default=generate_uuid7, editable=False)
 	name = models.CharField(max_length=100, unique=True)
 	gender = models.CharField(max_length=20)
 	gender_probability = models.FloatField()

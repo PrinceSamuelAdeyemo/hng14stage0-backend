@@ -1,17 +1,14 @@
 from django.db import models
 import uuid
 
-def generate_uuid_v7():
-	"""Generate a UUID v7 if available, otherwise UUID v4"""
-	try:
-		from uuid6 import uuid7
-		return uuid7()
-	except (ImportError, Exception):
-		# Fallback to UUID v4 if uuid6 is not available
-		return uuid.uuid4()
+# Use standard UUID v4 for Vercel compatibility
+# TODO: Can upgrade to UUID v7 later with uuid6 package
+def generate_uuid():
+	"""Generate a UUID"""
+	return uuid.uuid4()
 
 class Profile(models.Model):
-	id = models.UUIDField(primary_key=True, default=generate_uuid_v7, editable=False)
+	id = models.UUIDField(primary_key=True, default=generate_uuid, editable=False)
 	name = models.CharField(max_length=100, unique=True)
 	gender = models.CharField(max_length=20)
 	gender_probability = models.FloatField()

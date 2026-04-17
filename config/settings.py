@@ -99,8 +99,13 @@ if os.environ.get('DATABASE_URL'):
             default=os.environ.get('DATABASE_URL'),
             conn_max_age=600,
             conn_health_checks=True,
+            atomic_requests=True,
         )
     }
+    # Ensure SSL for cloud databases
+    if 'OPTIONS' not in DATABASES['default']:
+        DATABASES['default']['OPTIONS'] = {}
+    DATABASES['default']['OPTIONS']['sslmode'] = 'require'
 else:
     # Fallback to SQLite for local development
     DATABASES = {

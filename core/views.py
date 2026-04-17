@@ -17,6 +17,27 @@ from rest_framework.permissions import AllowAny
 import json
 
 
+# Simple health check endpoint
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def health_check(request):
+	"""Health check endpoint - no database required"""
+	try:
+		from django.db import connection
+		with connection.cursor() as cursor:
+			cursor.execute("SELECT 1")
+		db_status = "OK"
+	except Exception as e:
+		db_status = str(e)
+	
+	resp = Response({
+		"status": "success",
+		"message": "API is running",
+		"database": db_status
+	}, status=200)
+	return add_cors_header(resp)
+
+
 # DRF-based classify_name endpoint (if still needed)
 @api_view(["GET"])
 @permission_classes([AllowAny])

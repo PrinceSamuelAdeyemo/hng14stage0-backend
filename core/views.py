@@ -134,6 +134,11 @@ from rest_framework.permissions import AllowAny
 
 class ProfileListCreateView(APIView):
 	permission_classes = [AllowAny]
+	
+	def options(self, request):
+		resp = Response(status=200)
+		return add_cors_header(resp)
+	
 	def get(self, request):
 		gender = request.GET.get('gender')
 		country_id = request.GET.get('country_id')
@@ -290,6 +295,11 @@ class ProfileListCreateView(APIView):
 
 class ProfileDetailView(APIView):
 	permission_classes = [AllowAny]
+	
+	def options(self, request, pk=None):
+		resp = Response(status=200)
+		return add_cors_header(resp)
+	
 	def get(self, request, pk):
 		profile = get_object_or_404(Profile, pk=pk)
 		data = ProfileSerializer(profile).data

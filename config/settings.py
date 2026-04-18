@@ -89,27 +89,36 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
+DATABASE_URL="postgresql://neondb_owner:npg_SdBpqMk3aZO1@ep-gentle-forest-amukgbgo-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 import os
+import dj_database_url
 
-if os.environ.get('DATABASE_URL'):
-    import dj_database_url
-    DATABASES = {
+DATABASES = {
         'default': dj_database_url.config(
             default=os.environ.get('DATABASE_URL'),
             conn_max_age=600,
         )
     }
+
+#if os.environ.get('DATABASE_URL'):
+#    import dj_database_url
+#    DATABASES = {
+#        'default': dj_database_url.config(
+#            default=os.environ.get('DATABASE_URL'),
+#            conn_max_age=600,
+#        )
+#    }
     # Set these separately — they are not valid kwargs for config()
-    DATABASES['default']['ATOMIC_REQUESTS'] = True
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+#    DATABASES['default']['ATOMIC_REQUESTS'] = True
+#else:
+#    DATABASES = {
+#        'default': {
+#            'ENGINE': 'django.db.backends.sqlite3',
+#            'NAME': BASE_DIR / 'db.sqlite3',
+#        }
+#    }
 
 
 # Password validation

@@ -1,4 +1,3 @@
-config/settings.py
 core/__pycache__/
 config/__pycache__/
 *.pyc
